@@ -1,1 +1,1 @@
-# cursor-hackathon
+# Hackathon project for Cursor Hackathon at PSU
