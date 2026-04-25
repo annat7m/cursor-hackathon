@@ -1,0 +1,6 @@
+services:
+  ubuntu-xfce:
+    build:
+      context: ./ubuntu-xfce
+    image: cursor-hackathon/ubuntu-xfce:dev
+

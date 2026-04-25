@@ -1,0 +1,36 @@
+services:
+  api:
+    build:
+      context: ../backend
+    environment:
+      PORT: "8080"
+      DB_PATH: "/data/sessions.sqlite"
+      SESSION_TTL_MINUTES: "30"
+      DOCKER_IMAGE_DEFAULT: "cursor-hackathon/ubuntu-xfce:dev"
+      # INVITE_CODE: "psu"
+      # PUBLIC_BASE_URL: "https://your.domain"
+      SESSION_MEMORY_MB: "1024"
+      SESSION_CPU_CORES: "1"
+    ports:
+      - "8080:8080"
+    volumes:
+      - api-data:/data
+      # Docker socket for launching session containers:
+      # Linux:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://localhost:8080"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api-data:
+
