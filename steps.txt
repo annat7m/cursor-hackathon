@@ -1,0 +1,52 @@
+
+
+Here is your 90-Minute Sprint Plan to build a working prototype of Sentinel-Isolate.
+
+Role 1: Cloud Infra Engineer (The "Walls")
+Goal: Get the Cloudflare sandbox running and responding.
+
+0-20 min: Set up wrangler.toml. You MUST add the [[worker_loaders]] binding.
+
+20-50 min: Write the Parent Worker. This is the script that receives code via POST and calls env.LOADER.load().
+
+Tip: Use globalOutbound: null initially to prove total isolation.
+
+50-80 min: Implement the Outbound Interceptor. Write a function that catches a fetch to api.test.com and returns a hardcoded "Security Blocked" message or injects a dummy Authorization header.
+
+80-90 min: Deploy to Cloudflare and give the endpoint URL to the UX Engineer.
+
+Role 2: AI Security Architect (The "Brain")
+Goal: Build the "Critic" that decides if code is safe to run.
+
+0-30 min: Craft the Pre-Flight Prompt. You need a prompt that takes raw code and returns a JSON object: { "safe": boolean, "risk_score": 0-100, "reason": "string" }.
+
+Instruction: Tell the AI to look specifically for eval, process.env, and attempts to bypass the fetch sandbox.
+
+30-60 min: Build a small Node.js/Bun script that pipes a "Malicious Prompt" into an LLM and validates that your "Critic" catches it.
+
+60-90 min: Write the Credential Masking logic. Create a simple regex or AI-mapping that replaces real API keys with *** in the logs so the frontend never sees them.
+
+Role 3: UX & DX Engineer (The "Face")
+Goal: Make the "Invisible" cloud code look impressive.
+
+0-30 min: Go to v0.dev and use this prompt:
+
+"A dark-mode dashboard for 'Sentinel AI Isolate'. Left: Monaco code editor. Right: A vertical 'Security Trace' feed. Middle-top: A big 'Latency' counter (e.g., 4ms). Use Shadcn/ui cards and neon orange/green accents."
+
+30-70 min: Import the v0 code into a Next.js app. Hardcode the "Trace" animations so it looks like it's scanning while it waits for the API response.
+
+70-90 min: Connect the "Run" button to the Infra Engineer's endpoint. When the result comes back, trigger a "Success" toast that displays the execution time.
+
+The "Winner" Shortcut (Do this if you have 10 mins left)
+Don't worry about real databases. Use Cloudflare KV to store a "Log" of every execution. It’s the fastest way to show a "History" of what the AI has done.
+
+90-Minute Deliverable Checklist:
+[ ] A UI where you can type code.
+
+[ ] A "Security Approved" badge that pops up (via AI Architect's prompt).
+
+[ ] The code actually running on the Cloudflare Edge (via Infra Engineer).
+
+[ ] A "Latency" display showing <10ms.
+
+Who is taking which role? I can give you the specific code snippet for that person right now.

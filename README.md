@@ -44,41 +44,93 @@ Unlike traditional Docker-based sandboxes, Sentinel-Isolate uses **V8 Isolate-le
 
 ---
 
-## 🏃‍♂️ Build & Run
+## 🏃‍♂️ Build & Run (Detailed)
 
 Follow these steps to set up and run the project locally:
 
-### 1. Clone the repository
+### 1. Prerequisites
+
+- **Node.js** (v18 or newer recommended)
+- **npm** (comes with Node.js)
+
+Check your versions:
+```bash
+node -v
+npm -v
+```
+
+### 2. Clone the repository
+
 ```bash
 git clone <repo-url>
 cd cursor-hackathon
 ```
 
-### 2. Backend Setup
+### 3. Install dependencies
+
+Install backend dependencies:
 ```bash
 cd backend
 npm install
-# For development
-npm run dev
-# For production build
-npm run build
-npm start
 ```
 
-### 3. Frontend Setup
-Open a new terminal and run:
+Install frontend dependencies (in a new terminal):
 ```bash
 cd frontend
 npm install
-# For development
-npm run dev
-# For production build
+```
+
+### 4. Build the project
+
+#### Backend
+```bash
+cd backend
 npm run build
+```
+
+#### Frontend
+```bash
+cd frontend
+npm run build
+```
+
+### 5. Run the project
+
+#### Backend (Development Mode)
+```bash
+cd backend
+npm run dev
+```
+
+#### Backend (Production Mode)
+```bash
+cd backend
 npm start
 ```
 
-### 4. Access the App
+#### Frontend (Development Mode)
+```bash
+cd frontend
+npm run dev
+```
+
+#### Frontend (Production Mode)
+```bash
+cd frontend
+npm start
+```
+
+### 6. Access the App
+
 - Backend API: http://localhost:8080
 - Frontend: http://localhost:3000
+
+---
+
+### 🛠️ Troubleshooting
+
+- If you see warnings about multiple lockfiles, ensure you are running commands inside the correct `backend` or `frontend` folder.
+- If you get port conflicts, make sure nothing else is running on ports 3000 or 8080.
+- For dependency or build errors, try deleting `node_modules` and `package-lock.json`, then run `npm install` again.
 
 ---
