@@ -4,6 +4,7 @@ import { config } from "./config.js";
 export type StartedContainer = {
   containerId: string;
   hostPort: number;
+  connectUrl: string;
 };
 
 function nanoCpusFromCores(cores: number) {
@@ -16,6 +17,23 @@ function getDocker(): Docker {
   return new Docker();
 }
 
+async function ensureImage(docker: Docker, image: string) {
+  try {
+    await docker.getImage(image).inspect();
+    return;
+  } catch {
+    // Pulling here keeps the demo one-command once Docker Desktop is running.
+  }
+
+  const stream = await docker.pull(image);
+  await new Promise<void>((resolve, reject) => {
+    docker.modem.followProgress(stream, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 export type SandboxRunResult = {
   success: boolean;
   stdout: string;
@@ -25,21 +43,27 @@ export type SandboxRunResult = {
 
 export async function startSessionContainer(sessionId: string, templateImage: string): Promise<StartedContainer> {
   const docker = getDocker();
+  const image = templateImage || config.DOCKER_IMAGE_DEFAULT;
+  await ensureImage(docker, image);
 
   // This image is expected to expose a web desktop on 3000/tcp (linuxserver/webtop).
   // We'll publish to a random host port and return that as connectUrl.
   const internalPort = "3000/tcp";
 
   const container = await docker.createContainer({
-    Image: templateImage || config.DOCKER_IMAGE_DEFAULT,
+    Image: image,
     name: `vm_${sessionId}`,
     Env: [
       "PUID=1000",
       "PGID=1000",
-      "TZ=Etc/UTC"
+      "TZ=Etc/UTC",
+      "TITLE=Sentinel Isolate VM"
     ],
     ExposedPorts: {
       [internalPort]: {}
+    },
+    Labels: {
+      "sentinel-isolate.session": sessionId
     },
     HostConfig: {
       AutoRemove: true,
@@ -47,7 +71,8 @@ export async function startSessionContainer(sessionId: string, templateImage: st
         [internalPort]: [{ HostPort: "0" }]
       },
       Memory: config.SESSION_MEMORY_MB * 1024 * 1024,
-      NanoCpus: nanoCpusFromCores(config.SESSION_CPU_CORES)
+      NanoCpus: nanoCpusFromCores(config.SESSION_CPU_CORES),
+      ShmSize: 1024 * 1024 * 1024
     }
   });
 
@@ -58,7 +83,8 @@ export async function startSessionContainer(sessionId: string, templateImage: st
   if (!hostPort) {
     throw new Error("Failed to determine published port for session");
   }
-  return { containerId: container.id, hostPort: Number(hostPort) };
+  const connectHost = config.DOCKER_CONNECT_HOST.replace(/\/+$/, "");
+  return { containerId: container.id, hostPort: Number(hostPort), connectUrl: `${connectHost}:${hostPort}` };
 }
 
 export async function stopSessionContainer(containerId: string) {

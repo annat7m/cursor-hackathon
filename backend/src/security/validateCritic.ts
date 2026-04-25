@@ -1,4 +1,4 @@
-import { analyzeCode, buildSecurityCriticPrompt } from "./analyzeCode.js";
+import { ANALYZE_CODE_JSON_CONTRACT, analyzeCode, buildSecurityCriticPrompt, type CodeAnalysis } from "./analyzeCode.js";
 import { maskCredentials } from "./maskCredentials.js";
 
 type CriticCase = {
@@ -37,6 +37,20 @@ const cases: CriticCase[] = [
 
 let failures = 0;
 
+function matchesContract(result: CodeAnalysis): boolean {
+  const keys = Object.keys(result).sort();
+  return (
+    keys.join(",") === "reason,risk_score,safe" &&
+    typeof result.safe === "boolean" &&
+    typeof result.risk_score === "number" &&
+    result.risk_score >= 0 &&
+    result.risk_score <= 100 &&
+    typeof result.reason === "string"
+  );
+}
+
+console.log(`Contract: ${JSON.stringify(ANALYZE_CODE_JSON_CONTRACT)}`);
+
 for (const testCase of cases) {
   const prompt = buildSecurityCriticPrompt(testCase.code);
   const result = analyzeCode(testCase.code);
@@ -50,6 +64,11 @@ for (const testCase of cases) {
   if (!prompt.includes(testCase.code)) {
     failures += 1;
     console.error(`FAIL ${testCase.name}: critic prompt did not include raw code`);
+  }
+
+  if (!matchesContract(result)) {
+    failures += 1;
+    console.error(`FAIL ${testCase.name}: result does not match analyzeCode JSON contract`);
   }
 }
 

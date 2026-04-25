@@ -28,6 +28,10 @@ const templates = [
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
+app.get("/api/templates", (_req, res) => {
+  res.json(templates.map(({ image: _image, ...rest }) => rest));
+});
+
 app.get("/templates", (_req, res) => {
   res.json(templates.map(({ image: _image, ...rest }) => rest));
 });
@@ -108,9 +112,11 @@ app.post("/sessions", requireInviteCode, async (req, res) => {
         status: "running",
         containerId: started.containerId,
         hostPort: started.hostPort,
-        connectUrl: null
+        connectUrl: started.connectUrl
       });
     } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to start VM session ${id}:`, e);
       updateSession(db, id, { status: "error" });
     }
   })();

@@ -9,11 +9,13 @@ export type CodeAnalysis = {
   safe: boolean;
   risk_score: number;
   reason: string;
-  findings: Array<{
-    label: string;
-    detail: string;
-  }>;
 };
+
+export const ANALYZE_CODE_JSON_CONTRACT = {
+  safe: "boolean",
+  risk_score: "number from 0 to 100",
+  reason: "string"
+} as const;
 
 export const SECURITY_CRITIC_PROMPT = `You are Sentinel-Isolate's pre-flight security critic.
 
@@ -90,23 +92,19 @@ const RISK_RULES: CodeRisk[] = [
 
 export function analyzeCode(code: string): CodeAnalysis {
   const matchedRules = RISK_RULES.filter((rule) => rule.pattern.test(code));
-  const findings = matchedRules.map(({ label, detail }) => ({ label, detail }));
-
   const riskScore = Math.min(100, matchedRules.reduce((total, rule) => total + rule.score, 0));
 
-  if (findings.length === 0) {
+  if (matchedRules.length === 0) {
     return {
       safe: true,
       risk_score: 0,
-      reason: "No risky patterns detected",
-      findings: []
+      reason: "No risky patterns detected"
     };
   }
 
   return {
     safe: false,
     risk_score: riskScore,
-    reason: findings.map((finding) => finding.detail).join(" "),
-    findings
+    reason: matchedRules.map((rule) => rule.detail).join(" ")
   };
 }
