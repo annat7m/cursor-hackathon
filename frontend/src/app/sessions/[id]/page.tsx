@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { getSession, stopSession, type Session } from "../../../lib/api";
 
-type Props = { params: { id: string } };
-
-export default function SessionPage({ params }: Props) {
+export default function SessionPage() {
+  const params = useParams<{ id: string }>();
   const sessionId = params.id;
   const [inviteCode, setInviteCode] = useState("");
   const [session, setSession] = useState<Session | null>(null);

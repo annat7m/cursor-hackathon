@@ -1,110 +1,161 @@
-import React, { useState } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createSession, getSession, listTemplates, stopSession, type Session, type VmTemplate } from "../lib/api";
 
 export default function HomePage() {
-  const [code, setCode] = useState("");
-  const [trace, setTrace] = useState<string[]>([]);
-  const [latency, setLatency] = useState<number | null>(null);
-  const [security, setSecurity] = useState<{ safe: boolean; risk_score: number; reason: string } | null>(null);
-  const [result, setResult] = useState<{ stdout: string; stderr: string } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [templates, setTemplates] = useState<VmTemplate[] | null>(null);
+  const [selected, setSelected] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [session, setSession] = useState<Session | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function runCode() {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const loadedTemplates = await listTemplates();
+        if (cancelled) return;
+
+        setTemplates(loadedTemplates);
+        setSelected((current) => current || loadedTemplates[0]?.id || "");
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load VM templates");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session || session.status === "stopped" || session.status === "error") return;
+
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const updated = await getSession(session.id, inviteCode || undefined);
+        if (!cancelled) {
+          setSession(updated);
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to refresh VM status");
+      }
+    };
+
+    const interval = window.setInterval(refresh, 2500);
+    refresh();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [session?.id, session?.status, inviteCode]);
+
+  const selectedTemplate = useMemo(() => templates?.find((template) => template.id === selected), [templates, selected]);
+  const viewerUrl = session?.status === "running" ? session.connectUrl : undefined;
+
+  async function onStart() {
+    setStarting(true);
     setError(null);
-    setTrace((t) => [...t, "Scanning code for security issues..."]);
-    const start = performance.now();
     try {
-      const res = await fetch("http://localhost:8080/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      setLatency(Math.round(performance.now() - start));
-      setSecurity({ safe: data.safe, risk_score: data.risk_score, reason: data.reason });
-      setResult({ stdout: data.stdout, stderr: data.stderr });
-      setTrace((t) => [
-        ...t,
-        data.safe ? "Security Approved" : "Security Blocked",
-        `Reason: ${data.reason}`,
-        "Running code in sandbox...",
-        `stdout: ${data.stdout}`,
-        data.stderr ? `stderr: ${data.stderr}` : ""
-      ]);
-    } catch (e: any) {
-      setError(e.message || "Failed to run code");
-      setTrace((t) => [...t, "Error running code"]);
+      const created = await createSession(selected, inviteCode || undefined);
+      setSession(created);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start VM");
     } finally {
-      setLoading(false);
+      setStarting(false);
+    }
+  }
+
+  async function onStop() {
+    if (!session) return;
+
+    setStopping(true);
+    setError(null);
+    try {
+      await stopSession(session.id, inviteCode || undefined);
+      setSession({ ...session, status: "stopped", connectUrl: undefined });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to stop VM");
+    } finally {
+      setStopping(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      <div className="flex flex-row flex-1">
-        {/* Left: Code Editor */}
-        <div className="w-1/3 p-4 bg-gray-900">
-          <h2 className="text-lg mb-2">Code Editor</h2>
-          <textarea
-            className="w-full h-64 bg-gray-800 text-green-400 p-2 rounded"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Type your code here..."
-          />
-          <button
-            className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded"
-            onClick={runCode}
-            disabled={loading}
-          >
-            {loading ? "Running..." : "Run"}
-          </button>
+    <div className="panel">
+      {error ? (
+        <div className="error" style={{ marginBottom: 14 }}>
+          {error}
         </div>
-        {/* Middle: Latency & Security */}
-        <div className="w-1/3 flex flex-col items-center justify-center bg-gray-950">
-          <div className="text-4xl text-green-400 mb-4">
-            Latency: {latency !== null ? `${latency}ms` : "-"}
+      ) : null}
+
+      <div className="grid">
+        <div className="card">
+          <h3 className="cardTitle">1) Pick a VM</h3>
+          <p className="cardDesc">Choose the disposable browser VM and start it. The desktop opens below on this page.</p>
+
+          <div className="row" style={{ marginBottom: 12 }}>
+            <select className="input" value={selected} onChange={(e) => setSelected(e.target.value)} disabled={!templates}>
+              {(templates ?? []).map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+
+            <button className="button" disabled={!selected || starting || !templates} onClick={onStart}>
+              {starting ? "Starting..." : "Start VM"}
+            </button>
           </div>
-          {security && (
-            <div className={`px-4 py-2 rounded ${security.safe ? "bg-green-800" : "bg-red-800"} mb-2`}>
-              {security.safe ? "Security Approved" : "Security Blocked"}
-            </div>
-          )}
-          {security && (
-            <div className="text-orange-300 text-center text-sm mt-2">
-              {security.reason}
-            </div>
-          )}
+
+          <div className="row">
+            <input
+              className="input"
+              placeholder="Invite code (if required)"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+            />
+            <span className="pill">{selectedTemplate?.description ?? "Loading VM template..."}</span>
+          </div>
         </div>
-        {/* Right: Security Trace */}
-        <div className="w-1/3 p-4 bg-gray-900">
-          <h2 className="text-lg mb-2">Security Trace</h2>
-          <div className="bg-gray-800 p-2 rounded h-64 overflow-y-auto">
-            {trace.map((t, i) => (
-              t ? <div key={i} className="text-orange-400">{t}</div> : null
-            ))}
+
+        <div className="card">
+          <h3 className="cardTitle">2) Session controls</h3>
+          <p className="cardDesc">Use Stop when you are done so the VM shuts down cleanly.</p>
+
+          <div className="row">
+            <span className="pill">status: {session?.status ?? "no VM yet"}</span>
+            {session?.expiresAt ? <span className="pill">expires {new Date(session.expiresAt).toLocaleString()}</span> : null}
+            <button className="button buttonDanger" disabled={!session || session.status === "stopped" || stopping} onClick={onStop}>
+              {stopping ? "Stopping..." : "Stop VM"}
+            </button>
           </div>
         </div>
       </div>
-      {/* Result */}
-      <div className="p-4 bg-gray-950 border-t border-gray-800">
-        <h2 className="text-lg mb-2">Result</h2>
-        {error && <div className="text-red-400 mb-2">{error}</div>}
-        <div className="bg-gray-800 p-2 rounded text-green-400 min-h-10">
-          {result ? (
-            <>
-              <div><b>stdout:</b> {result.stdout}</div>
-              {result.stderr && <div><b>stderr:</b> {result.stderr}</div>}
-            </>
-          ) : "-"}
+
+      <div className="card" style={{ marginTop: 14, gridColumn: "span 12" }}>
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <h3 className="cardTitle">3) Browser VM window</h3>
+            <p className="cardDesc">The VM stays embedded here, so you can stop it from this same page.</p>
+          </div>
+          {session?.id ? <code>{session.id}</code> : <span className="pill">No session yet</span>}
         </div>
-      </div>
-    </div>
-  );
-}
-            <span className="pill">No session yet</span>
-          )}
-        </div>
+
+        {viewerUrl ? (
+          <iframe className="viewerFrame" title="Browser VM" src={viewerUrl} style={{ height: 520 }} />
+        ) : (
+          <div className="pill">
+            {session ? "Waiting for the VM to become ready..." : "Start the VM to open it here."}
+          </div>
+        )}
       </div>
     </div>
   );
