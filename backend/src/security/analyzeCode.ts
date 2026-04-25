@@ -15,6 +15,28 @@ export type CodeAnalysis = {
   }>;
 };
 
+export const SECURITY_CRITIC_PROMPT = `You are Sentinel-Isolate's pre-flight security critic.
+
+Analyze the raw JavaScript/TypeScript code from an AI agent before it is allowed to run.
+Return only valid JSON with this exact shape:
+{ "safe": boolean, "risk_score": 0-100, "reason": "string" }
+
+Mark code unsafe when it attempts dynamic execution, secret access, filesystem access,
+process spawning, outbound network calls, or bypasses of a fetch/network sandbox.
+Look especially for eval, Function constructors, process.env, child_process, fs,
+node:http/node:https/node:net/node:dns imports, fetch exfiltration, global fetch
+rewrites, constructor.constructor escapes, and dynamic imports of vm/module.
+Use a concise reason that names the riskiest behavior.`;
+
+export function buildSecurityCriticPrompt(code: string): string {
+  return `${SECURITY_CRITIC_PROMPT}
+
+Code to analyze:
+\`\`\`
+${code}
+\`\`\``;
+}
+
 const RISK_RULES: CodeRisk[] = [
   {
     label: "Dynamic eval",
@@ -57,6 +79,12 @@ const RISK_RULES: CodeRisk[] = [
     detail: "References common globals used to inspect or bypass the runtime.",
     score: 25,
     pattern: /\b(?:globalThis\s*\.\s*process|constructor\s*\.\s*constructor|import\s*\(\s*["'](?:node:)?(?:vm|module)["']\s*\))/i
+  },
+  {
+    label: "Fetch sandbox bypass",
+    detail: "Attempts to tamper with fetch or smuggle credentials through request headers.",
+    score: 35,
+    pattern: /\b(?:globalThis\s*\.\s*fetch\s*=|fetch\s*=|new\s+Headers\s*\(|Authorization\s*:|["']Authorization["']\s*,|api[_-]?key|x-api-key)/i
   }
 ];
 
