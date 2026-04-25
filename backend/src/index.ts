@@ -9,6 +9,7 @@ import { openDb, insertSession, getSession, updateSession, listExpiredSessions, 
 import { requireInviteCode } from "./http.js";
 import { runSandboxedNodeCode, startSessionContainer, stopSessionContainer } from "./docker.js";
 import { analyzeCode } from "./security/analyzeCode.js";
+import { maskCredentials } from "./security/maskCredentials.js";
 
 const app = express();
 app.use(cors());
@@ -53,7 +54,9 @@ app.post("/api/run", requireInviteCode, async (req, res) => {
   const result = await runSandboxedNodeCode(parsed.data.code, { timeoutMs: 2500 });
   return res.status(200).json({
     ...analysis,
-    ...result
+    ...result,
+    stdout: maskCredentials(result.stdout),
+    stderr: maskCredentials(result.stderr)
   });
 });
 

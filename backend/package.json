@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json && tsc-alias",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "security:check": "npm run build && node dist/security/validateCritic.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
@@ -22,13 +23,14 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.18",
+    "@types/dockerode": "^4.0.1",
     "@types/express": "^4.17.23",
+    "@types/http-proxy": "^1.17.17",
     "@types/node": "^22.18.0",
     "@types/ws": "^8.18.1",
     "eslint": "^9.34.0",
-    "tsx": "^4.20.5",
     "tsc-alias": "^1.8.16",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
 }
-
