@@ -4,5 +4,5 @@ compatibility_date = "2026-04-25"
 
 # Role 1 requires this binding.
 [[worker_loaders]]
-name = "LOADER"
+binding = "LOADER"
 
