@@ -41,3 +41,44 @@ Unlike traditional Docker-based sandboxes, Sentinel-Isolate uses **V8 Isolate-le
 │   └── security/       # AI-driven code analysis & sanitization logic
 ├── dashboard/          # Frontend Command Center (React + Tailwind)
 └── README.md
+
+---
+
+## 🏃‍♂️ Build & Run
+
+Follow these steps to set up and run the project locally:
+
+### 1. Clone the repository
+```bash
+git clone <repo-url>
+cd cursor-hackathon
+```
+
+### 2. Backend Setup
+```bash
+cd backend
+npm install
+# For development
+npm run dev
+# For production build
+npm run build
+npm start
+```
+
+### 3. Frontend Setup
+Open a new terminal and run:
+```bash
+cd frontend
+npm install
+# For development
+npm run dev
+# For production build
+npm run build
+npm start
+```
+
+### 4. Access the App
+- Backend API: http://localhost:8080
+- Frontend: http://localhost:3000
+
+---
