@@ -7,7 +7,8 @@ import httpProxy from "http-proxy";
 import { config } from "./config.js";
 import { openDb, insertSession, getSession, updateSession, listExpiredSessions, type SessionRow } from "./db.js";
 import { requireInviteCode } from "./http.js";
-import { startSessionContainer, stopSessionContainer } from "./docker.js";
+import { runSandboxedNodeCode, startSessionContainer, stopSessionContainer } from "./docker.js";
+import { analyzeCode } from "./security/analyzeCode.js";
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,32 @@ app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
 app.get("/templates", (_req, res) => {
   res.json(templates.map(({ image: _image, ...rest }) => rest));
+});
+
+const RunSchema = z.object({
+  code: z.string().min(1).max(50_000)
+});
+
+app.post("/api/run", requireInviteCode, async (req, res) => {
+  const parsed = RunSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid request" });
+
+  const analysis = analyzeCode(parsed.data.code);
+  if (!analysis.safe) {
+    return res.status(200).json({
+      ...analysis,
+      success: false,
+      stdout: "",
+      stderr: "Blocked by security policy",
+      latencyMs: 0
+    });
+  }
+
+  const result = await runSandboxedNodeCode(parsed.data.code, { timeoutMs: 2500 });
+  return res.status(200).json({
+    ...analysis,
+    ...result
+  });
 });
 
 const CreateSessionSchema = z.object({

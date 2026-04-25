@@ -16,6 +16,13 @@ function getDocker(): Docker {
   return new Docker();
 }
 
+export type SandboxRunResult = {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  latencyMs: number;
+};
+
 export async function startSessionContainer(sessionId: string, templateImage: string): Promise<StartedContainer> {
   const docker = getDocker();
 
@@ -62,5 +69,81 @@ export async function stopSessionContainer(containerId: string) {
   } catch (e) {
     // If it's already stopped/removed, that's fine for our cleanup.
   }
+}
+
+export async function runSandboxedNodeCode(code: string, opts?: { timeoutMs?: number }): Promise<SandboxRunResult> {
+  const docker = getDocker();
+  const timeoutMs = opts?.timeoutMs ?? 2500;
+
+  const startedAt = Date.now();
+
+  // Use a fresh container, no mounts, no network.
+  const container = await docker.createContainer({
+    Image: "node:22-alpine",
+    Cmd: ["node", "-e", code],
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+    OpenStdin: false,
+    HostConfig: {
+      AutoRemove: true,
+      NetworkMode: "none",
+      Memory: Math.max(64, Math.floor(config.SESSION_MEMORY_MB / 4)) * 1024 * 1024,
+      NanoCpus: Math.max(1, Math.floor(config.SESSION_CPU_CORES * 1_000_000_000))
+    }
+  });
+
+  await container.start();
+
+  const logsPromise = container.logs({
+    stdout: true,
+    stderr: true,
+    follow: true
+  });
+
+  const waitPromise = container.wait();
+
+  let timedOut = false;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    const t = setTimeout(() => {
+      timedOut = true;
+      clearTimeout(t);
+      reject(new Error("timeout"));
+    }, timeoutMs);
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  try {
+    const stream = await logsPromise;
+    // dockerode multiplexes streams when not TTY; parse manually.
+    stream.on("data", (chunk: Buffer) => {
+      if (chunk.length < 8) return;
+      const streamType = chunk[0]; // 1 stdout, 2 stderr
+      const payload = chunk.subarray(8);
+      if (streamType === 1) stdout += payload.toString("utf8");
+      else if (streamType === 2) stderr += payload.toString("utf8");
+      else stdout += payload.toString("utf8");
+    });
+
+    await Promise.race([waitPromise, timeoutPromise]);
+  } catch (e) {
+    if (timedOut) {
+      try {
+        await container.kill();
+      } catch {
+        // ignore
+      }
+      stderr += "\n[timeout]\n";
+    } else {
+      stderr += `\n[error] ${(e as Error).message}\n`;
+    }
+  }
+
+  const latencyMs = Date.now() - startedAt;
+  const success = !timedOut;
+
+  return { success, stdout, stderr, latencyMs };
 }
 
