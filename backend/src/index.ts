@@ -23,6 +23,12 @@ const templates = [
     name: "Ubuntu (XFCE Desktop)",
     description: "Disposable Ubuntu desktop in your browser (good default).",
     image: config.DOCKER_IMAGE_DEFAULT
+  },
+  {
+    id: "alpine-xfce",
+    name: "Alpine (XFCE Desktop)",
+    description: "Lightweight disposable Linux desktop for faster demos.",
+    image: "ghcr.io/linuxserver/webtop:alpine-xfce"
   }
 ] as const;
 
